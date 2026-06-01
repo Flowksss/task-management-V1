@@ -16,4 +16,6 @@ export interface Task {
   // trabalho
   weekday?: Weekday
   period?: Period
+  /** Datas ISO em que a tarefa de trabalho foi concluída. Reset diário derivado. */
+  completedDates?: string[]
 }

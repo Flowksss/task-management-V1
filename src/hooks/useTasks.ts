@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { Task, Category, Priority } from '../types'
+import type { Task, Category, Priority, Weekday, Period } from '../types'
+import { todayISO } from '../lib/date'
 
 const STORAGE_KEY = 'task-manager-tasks'
 
@@ -25,6 +26,8 @@ export function useTasks() {
     category: Category
     priority: Priority
     dueDate?: string
+    weekday?: Weekday
+    period?: Period
   }) {
     const task: Task = {
       id: crypto.randomUUID(),
@@ -41,6 +44,20 @@ export function useTasks() {
     )
   }
 
+  /** Conclusão de tarefa de trabalho na data `iso` (default hoje). Toggle no histórico. */
+  function toggleWorkDone(id: string, iso: string = todayISO()) {
+    setTasks(prev =>
+      prev.map(t => {
+        if (t.id !== id) return t
+        const dates = t.completedDates ?? []
+        const next = dates.includes(iso)
+          ? dates.filter(d => d !== iso)
+          : [...dates, iso]
+        return { ...t, completedDates: next }
+      })
+    )
+  }
+
   function deleteTask(id: string) {
     setTasks(prev => prev.filter(t => t.id !== id))
   }
@@ -51,5 +68,5 @@ export function useTasks() {
     )
   }
 
-  return { tasks, addTask, toggleTask, deleteTask, editTask }
+  return { tasks, addTask, toggleTask, toggleWorkDone, deleteTask, editTask }
 }

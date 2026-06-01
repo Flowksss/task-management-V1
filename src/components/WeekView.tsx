@@ -1,10 +1,11 @@
-import { Plus } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import type { Task, Weekday, Period } from '../types'
+import { isDone } from '../lib/tasks'
+import { todayWeekday } from '../lib/date'
 
 interface Props {
   tasks: Task[]
-  onToggle: (id: string) => void
-  onDelete: (id: string) => void
+  onToggleDone: (id: string) => void
   onEdit: (task: Task) => void
   onAdd: (weekday: Weekday, period: Period) => void
 }
@@ -34,17 +35,11 @@ const PRIORITY_BG = {
   alta: 'bg-red-500/10',
 }
 
-function todayWeekday(): Weekday | null {
-  const map: Record<number, Weekday> = { 1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex' }
-  return map[new Date().getDay()] ?? null
-}
-
-export function WeekView({ tasks, onToggle: _onToggle, onDelete: _onDelete, onEdit, onAdd }: Props) {
+export function WeekView({ tasks, onToggleDone, onEdit, onAdd }: Props) {
   const today = todayWeekday()
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Scrollable grid */}
       <div className="overflow-x-auto flex-1">
         <div className="min-w-[760px] h-full flex flex-col px-3 py-4 gap-4">
           {PERIODS.map(period => (
@@ -54,12 +49,12 @@ export function WeekView({ tasks, onToggle: _onToggle, onDelete: _onDelete, onEd
               </h3>
               <div className="grid grid-cols-5 gap-2">
                 {DAYS.map(day => {
-                  const cell = tasks.filter(
-                    t => t.weekday === day.value && t.period === period.value
-                  ).sort((a, b) => {
-                    const order = { alta: 0, media: 1, baixa: 2 }
-                    return order[a.priority] - order[b.priority]
-                  })
+                  const cell = tasks
+                    .filter(t => t.weekday === day.value && t.period === period.value)
+                    .sort((a, b) => {
+                      const order = { alta: 0, media: 1, baixa: 2 }
+                      return order[a.priority] - order[b.priority]
+                    })
 
                   const isToday = today === day.value
 
@@ -82,19 +77,36 @@ export function WeekView({ tasks, onToggle: _onToggle, onDelete: _onDelete, onEd
                         </button>
                       </div>
 
-                      {cell.map(task => (
-                        <div
-                          key={task.id}
-                          onClick={() => onEdit(task)}
-                          className={`rounded-lg px-2.5 py-2 border-l-2 cursor-pointer transition-opacity ${
-                            PRIORITY_COLORS[task.priority]
-                          } ${PRIORITY_BG[task.priority]} ${task.completed ? 'opacity-40' : ''}`}
-                        >
-                          <p className={`text-sm leading-snug break-words ${task.completed ? 'line-through text-neutral-500' : 'text-neutral-200'}`}>
-                            {task.title}
-                          </p>
-                        </div>
-                      ))}
+                      {cell.map(task => {
+                        const done = isDone(task)
+                        return (
+                          <div
+                            key={task.id}
+                            className={`flex items-start gap-1.5 rounded-lg px-2 py-2 border-l-2 transition-opacity ${
+                              PRIORITY_COLORS[task.priority]
+                            } ${PRIORITY_BG[task.priority]} ${done ? 'opacity-40' : ''}`}
+                          >
+                            <button
+                              onClick={() => onToggleDone(task.id)}
+                              className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
+                                done
+                                  ? 'bg-indigo-600 border-indigo-600'
+                                  : 'border-neutral-600 hover:border-indigo-500'
+                              }`}
+                            >
+                              {done && <Check size={10} strokeWidth={3} className="text-white" />}
+                            </button>
+                            <p
+                              onClick={() => onEdit(task)}
+                              className={`flex-1 text-sm leading-snug break-words cursor-pointer ${
+                                done ? 'line-through text-neutral-500' : 'text-neutral-200'
+                              }`}
+                            >
+                              {task.title}
+                            </p>
+                          </div>
+                        )
+                      })}
 
                       {cell.length === 0 && (
                         <button

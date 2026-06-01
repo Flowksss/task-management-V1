@@ -1,6 +1,6 @@
-import { List, Calendar, LayoutGrid } from 'lucide-react'
+import { LayoutDashboard, List, Calendar, LayoutGrid } from 'lucide-react'
 
-export type View = 'lista' | 'calendario' | 'semana'
+export type View = 'dashboard' | 'lista' | 'calendario' | 'semana'
 
 interface Props {
   active: View
@@ -8,6 +8,7 @@ interface Props {
 }
 
 const TABS: { value: View; label: string; icon: React.ReactNode }[] = [
+  { value: 'dashboard', label: 'Início', icon: <LayoutDashboard size={20} /> },
   { value: 'lista', label: 'Lista', icon: <List size={20} /> },
   { value: 'calendario', label: 'Calendário', icon: <Calendar size={20} /> },
   { value: 'semana', label: 'Semana', icon: <LayoutGrid size={20} /> },

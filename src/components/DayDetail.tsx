@@ -1,17 +1,16 @@
 import { X, Check, Trash2, Pencil } from 'lucide-react'
-import type { Task, Weekday } from '../types'
+import type { Task } from '../types'
+import { toISO, weekdayOf } from '../lib/date'
+import { isDone } from '../lib/tasks'
 
 interface Props {
   date: Date
   tasks: Task[]
   onClose: () => void
-  onToggle: (id: string) => void
+  onTogglePersonal: (id: string) => void
+  onToggleWork: (id: string, iso: string) => void
   onDelete: (id: string) => void
   onEdit: (task: Task) => void
-}
-
-const WEEKDAY_MAP: Record<number, Weekday> = {
-  1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex',
 }
 
 const PRIORITY_DOT = {
@@ -23,15 +22,21 @@ const PRIORITY_DOT = {
 const DAY_NAMES_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
-export function DayDetail({ date, tasks, onClose, onToggle, onDelete, onEdit }: Props) {
-  const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  const weekday = WEEKDAY_MAP[date.getDay()]
+export function DayDetail({ date, tasks, onClose, onTogglePersonal, onToggleWork, onDelete, onEdit }: Props) {
+  const iso = toISO(date)
+  const weekday = weekdayOf(date)
 
   const personal = tasks.filter(t => t.category === 'pessoal' && t.dueDate === iso)
   const work = weekday ? tasks.filter(t => t.category === 'trabalho' && t.weekday === weekday) : []
   const all = [...personal, ...work]
+  const pendingCount = all.filter(t => !isDone(t, iso)).length
 
   const dayLabel = `${DAY_NAMES_FULL[date.getDay()]}, ${date.getDate()} de ${MONTH_SHORT[date.getMonth()]}`
+
+  function toggle(task: Task) {
+    if (task.category === 'trabalho') onToggleWork(task.id, iso)
+    else onTogglePersonal(task.id)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -41,7 +46,7 @@ export function DayDetail({ date, tasks, onClose, onToggle, onDelete, onEdit }: 
           <div>
             <h2 className="text-base font-semibold text-white capitalize">{dayLabel}</h2>
             <p className="text-xs text-neutral-500 mt-0.5">
-              {all.length === 0 ? 'Sem tarefas' : `${all.filter(t => !t.completed).length} pendente${all.filter(t => !t.completed).length !== 1 ? 's' : ''}`}
+              {all.length === 0 ? 'Sem tarefas' : `${pendingCount} pendente${pendingCount !== 1 ? 's' : ''}`}
             </p>
           </div>
           <button
@@ -56,33 +61,36 @@ export function DayDetail({ date, tasks, onClose, onToggle, onDelete, onEdit }: 
           {all.length === 0 ? (
             <p className="text-center text-neutral-600 text-sm py-8">Nenhuma tarefa neste dia.</p>
           ) : (
-            all.map(task => (
-              <div
-                key={task.id}
-                className={`flex items-center gap-3 bg-neutral-800 rounded-xl px-3 py-3 transition-opacity ${task.completed ? 'opacity-50' : ''}`}
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[task.priority]}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${task.completed ? 'line-through text-neutral-500' : 'text-neutral-100'}`}>
-                    {task.title}
-                  </p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {task.category === 'trabalho' ? `Trabalho · ${task.period === 'manha' ? 'Manhã' : 'Tarde'}` : 'Pessoal'}
-                  </p>
+            all.map(task => {
+              const done = isDone(task, iso)
+              return (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-3 bg-neutral-800 rounded-xl px-3 py-3 transition-opacity ${done ? 'opacity-50' : ''}`}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[task.priority]}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${done ? 'line-through text-neutral-500' : 'text-neutral-100'}`}>
+                      {task.title}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      {task.category === 'trabalho' ? `Trabalho · ${task.period === 'manha' ? 'Manhã' : 'Tarde'}` : 'Pessoal'}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => toggle(task)} className={`p-1.5 rounded-lg transition-colors ${done ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-400'}`}>
+                      <Check size={15} />
+                    </button>
+                    <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-300 transition-colors">
+                      <Pencil size={15} />
+                    </button>
+                    <button onClick={() => onDelete(task.id)} className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 transition-colors">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => onToggle(task.id)} className={`p-1.5 rounded-lg transition-colors ${task.completed ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-400'}`}>
-                    <Check size={15} />
-                  </button>
-                  <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-300 transition-colors">
-                    <Pencil size={15} />
-                  </button>
-                  <button onClick={() => onDelete(task.id)} className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 transition-colors">
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>

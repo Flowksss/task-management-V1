@@ -1,25 +1,25 @@
 import { useState } from 'react'
-import { Plus, User, ListTodo } from 'lucide-react'
+import { Plus, ListTodo } from 'lucide-react'
 import { useTasks } from './hooks/useTasks'
 import { TaskCard } from './components/TaskCard'
 import { TaskForm } from './components/TaskForm'
 import { BottomNav } from './components/BottomNav'
+import { Dashboard } from './components/Dashboard'
 import { CalendarView } from './components/CalendarView'
 import { WeekView } from './components/WeekView'
 import { DayDetail } from './components/DayDetail'
 import type { Task, Weekday, Period } from './types'
 import type { View } from './components/BottomNav'
+import { isDone } from './lib/tasks'
+import { todayISO, todayWeekday } from './lib/date'
 
 export default function App() {
-  const { tasks, addTask, toggleTask, deleteTask, editTask } = useTasks()
-  const [view, setView] = useState<View>('lista')
-  const [listFilter, setListFilter] = useState<'todas' | 'pessoal'>('todas')
+  const { tasks, addTask, toggleTask, toggleWorkDone, deleteTask, editTask } = useTasks()
+  const [view, setView] = useState<View>('dashboard')
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [formDefaults, setFormDefaults] = useState<{ weekday?: Weekday; period?: Period }>({})
   const [selectedDay, setSelectedDay] = useState<Date | null>(null)
-
-  const pendingCount = tasks.filter(t => !t.completed).length
 
   function handleEdit(task: Task) {
     setEditingTask(task)
@@ -47,44 +47,38 @@ export default function App() {
     setShowForm(true)
   }
 
-  // Lista view — só pessoal + todas (sem trabalho dedicado, ele está na aba Semana)
-  const listTasks = tasks.filter(t =>
-    listFilter === 'todas' ? t.category === 'pessoal' : t.category === 'pessoal'
-  )
-  const workTasks = tasks.filter(t => t.category === 'trabalho')
+  // Lista = tarefas pessoais
+  const listTasks = tasks.filter(t => t.category === 'pessoal')
   const pending = listTasks.filter(t => !t.completed)
   const done = listTasks.filter(t => t.completed)
 
+  // Semana de trabalho
+  const workTasks = tasks.filter(t => t.category === 'trabalho')
+  const wd = todayWeekday()
+  const todayWorkPending = wd
+    ? workTasks.filter(t => t.weekday === wd && !isDone(t, todayISO())).length
+    : 0
+
   return (
     <div className="min-h-svh bg-[#0a0a0a] flex flex-col max-w-lg mx-auto">
+      {/* ── DASHBOARD ── */}
+      {view === 'dashboard' && (
+        <Dashboard
+          tasks={tasks}
+          onTogglePersonal={toggleTask}
+          onToggleWork={toggleWorkDone}
+          onGoTo={setView}
+        />
+      )}
+
       {/* ── LISTA ── */}
       {view === 'lista' && (
         <>
           <div className="px-5 pt-12 pb-4">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Minhas Tarefas</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Tarefas Pessoais</h1>
             <p className="text-sm text-neutral-500 mt-0.5">
-              {pendingCount === 0 ? 'Tudo em dia!' : `${pendingCount} pendente${pendingCount !== 1 ? 's' : ''}`}
+              {pending.length === 0 ? 'Tudo em dia!' : `${pending.length} pendente${pending.length !== 1 ? 's' : ''}`}
             </p>
-          </div>
-
-          <div className="px-5 flex gap-2">
-            {[
-              { value: 'todas' as const, label: 'Pessoal', icon: <User size={16} /> },
-            ].map(f => (
-              <button
-                key={f.value}
-                onClick={() => setListFilter(f.value)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white"
-              >
-                {f.icon}
-                {f.label}
-                {pending.length > 0 && (
-                  <span className="text-xs rounded-full px-1.5 py-0.5 font-semibold bg-white/20 text-white">
-                    {pending.length}
-                  </span>
-                )}
-              </button>
-            ))}
           </div>
 
           <div className="flex-1 px-5 py-4 flex flex-col gap-6 overflow-y-auto pb-28">
@@ -154,7 +148,7 @@ export default function App() {
       {/* ── CALENDÁRIO ── */}
       {view === 'calendario' && (
         <div className="flex flex-col flex-1 pb-16">
-          <div className="px-5 pt-12 pb-2">
+          <div className="px-5 pt-12 pb-3">
             <h1 className="text-2xl font-bold text-white tracking-tight">Calendário</h1>
           </div>
           <CalendarView tasks={tasks} onDayPress={setSelectedDay} />
@@ -167,13 +161,14 @@ export default function App() {
           <div className="px-5 pt-12 pb-2">
             <h1 className="text-2xl font-bold text-white tracking-tight">Semana de Trabalho</h1>
             <p className="text-sm text-neutral-500 mt-0.5">
-              {workTasks.filter(t => !t.completed).length} tarefa{workTasks.filter(t => !t.completed).length !== 1 ? 's' : ''} pendente{workTasks.filter(t => !t.completed).length !== 1 ? 's' : ''}
+              {todayWorkPending === 0
+                ? 'Hoje sem pendências'
+                : `${todayWorkPending} pendente${todayWorkPending !== 1 ? 's' : ''} hoje`}
             </p>
           </div>
           <WeekView
             tasks={workTasks}
-            onToggle={toggleTask}
-            onDelete={deleteTask}
+            onToggleDone={toggleWorkDone}
             onEdit={handleEdit}
             onAdd={handleWeekAdd}
           />
@@ -189,7 +184,8 @@ export default function App() {
           date={selectedDay}
           tasks={tasks}
           onClose={() => setSelectedDay(null)}
-          onToggle={toggleTask}
+          onTogglePersonal={toggleTask}
+          onToggleWork={toggleWorkDone}
           onDelete={deleteTask}
           onEdit={t => { setSelectedDay(null); handleEdit(t) }}
         />
