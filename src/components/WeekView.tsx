@@ -39,7 +39,7 @@ function todayWeekday(): Weekday | null {
   return map[new Date().getDay()] ?? null
 }
 
-export function WeekView({ tasks, onToggle, onDelete, onEdit, onAdd }: Props) {
+export function WeekView({ tasks, onToggle: _onToggle, onDelete: _onDelete, onEdit, onAdd }: Props) {
   const today = todayWeekday()
 
   return (
