@@ -1,11 +1,11 @@
 import { Plus, Check } from 'lucide-react'
 import type { Task, Weekday, Period } from '../types'
-import { isDone } from '../lib/tasks'
-import { todayWeekday } from '../lib/date'
+import { isDone, activeOnDate, isFixa } from '../lib/tasks'
+import { weekDates, toISO, todayISO } from '../lib/date'
 
 interface Props {
   tasks: Task[]
-  onToggleDone: (id: string) => void
+  onToggleDone: (task: Task, iso: string) => void
   onEdit: (task: Task) => void
   onAdd: (weekday: Weekday, period: Period) => void
 }
@@ -36,7 +36,8 @@ const PRIORITY_BG = {
 }
 
 export function WeekView({ tasks, onToggleDone, onEdit, onAdd }: Props) {
-  const today = todayWeekday()
+  const today = todayISO()
+  const dates = weekDates() // Seg→Sex reais da semana atual
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -48,15 +49,17 @@ export function WeekView({ tasks, onToggleDone, onEdit, onAdd }: Props) {
                 {period.label}
               </h3>
               <div className="grid grid-cols-5 gap-2">
-                {DAYS.map(day => {
+                {DAYS.map((day, i) => {
+                  const colDate = dates[i]
+                  const colISO = toISO(colDate)
+                  const isToday = colISO === today
+
                   const cell = tasks
-                    .filter(t => t.weekday === day.value && t.period === period.value)
+                    .filter(t => t.period === period.value && activeOnDate(t, colDate))
                     .sort((a, b) => {
                       const order = { alta: 0, media: 1, baixa: 2 }
                       return order[a.priority] - order[b.priority]
                     })
-
-                  const isToday = today === day.value
 
                   return (
                     <div
@@ -78,16 +81,17 @@ export function WeekView({ tasks, onToggleDone, onEdit, onAdd }: Props) {
                       </div>
 
                       {cell.map(task => {
-                        const done = isDone(task)
+                        const done = isDone(task, colISO)
+                        const avulsa = !isFixa(task)
                         return (
                           <div
                             key={task.id}
                             className={`flex items-start gap-1.5 rounded-lg px-2 py-2 border-l-2 transition-opacity ${
                               PRIORITY_COLORS[task.priority]
-                            } ${PRIORITY_BG[task.priority]} ${done ? 'opacity-40' : ''}`}
+                            } ${PRIORITY_BG[task.priority]} ${avulsa ? 'border-dashed border-y border-r border-y-neutral-700/60 border-r-neutral-700/60' : ''} ${done ? 'opacity-40' : ''}`}
                           >
                             <button
-                              onClick={() => onToggleDone(task.id)}
+                              onClick={() => onToggleDone(task, colISO)}
                               className={`mt-0.5 shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${
                                 done
                                   ? 'bg-indigo-600 border-indigo-600'
@@ -96,14 +100,16 @@ export function WeekView({ tasks, onToggleDone, onEdit, onAdd }: Props) {
                             >
                               {done && <Check size={10} strokeWidth={3} className="text-white" />}
                             </button>
-                            <p
-                              onClick={() => onEdit(task)}
-                              className={`flex-1 text-sm leading-snug break-words cursor-pointer ${
-                                done ? 'line-through text-neutral-500' : 'text-neutral-200'
-                              }`}
-                            >
-                              {task.title}
-                            </p>
+                            <div onClick={() => onEdit(task)} className="flex-1 cursor-pointer">
+                              <p className={`text-sm leading-snug break-words ${done ? 'line-through text-neutral-500' : 'text-neutral-200'}`}>
+                                {task.title}
+                              </p>
+                              {avulsa && task.dueDate && (
+                                <span className="text-[10px] text-neutral-500">
+                                  até {new Date(task.dueDate + 'T00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         )
                       })}

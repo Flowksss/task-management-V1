@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Task, Category, Priority, Weekday, Period } from '../types'
 import { todayISO } from '../lib/date'
+import { isFixa } from '../lib/tasks'
 
 const STORAGE_KEY = 'task-manager-tasks'
 
@@ -28,6 +29,7 @@ export function useTasks() {
     dueDate?: string
     weekday?: Weekday
     period?: Period
+    fixa?: boolean
   }) {
     const task: Task = {
       id: crypto.randomUUID(),
@@ -58,6 +60,15 @@ export function useTasks() {
     )
   }
 
+  /** Conclusão roteada por tipo: fixa → data (reset diário); pessoal/avulsa → permanente. */
+  function toggleDone(task: Task, iso: string = todayISO()) {
+    if (task.category === 'trabalho' && isFixa(task)) {
+      toggleWorkDone(task.id, iso)
+    } else {
+      toggleTask(task.id)
+    }
+  }
+
   function deleteTask(id: string) {
     setTasks(prev => prev.filter(t => t.id !== id))
   }
@@ -68,5 +79,5 @@ export function useTasks() {
     )
   }
 
-  return { tasks, addTask, toggleTask, toggleWorkDone, deleteTask, editTask }
+  return { tasks, addTask, toggleTask, toggleWorkDone, toggleDone, deleteTask, editTask }
 }

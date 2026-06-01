@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, User, Briefcase } from 'lucide-react'
 import type { Task, Category } from '../types'
-import { toISO, weekdayOf } from '../lib/date'
-import { isDone } from '../lib/tasks'
+import { toISO } from '../lib/date'
+import { isDone, activeOnDate } from '../lib/tasks'
 
 interface Props {
   tasks: Task[]
@@ -16,14 +16,13 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
-/** Tarefas de uma categoria que caem numa data (pessoal: dueDate; trabalho: weekday). */
+/** Tarefas de uma categoria que caem numa data (pessoal: dueDate; trabalho: fixa/avulsa). */
 function tasksOnDate(tasks: Task[], date: Date, cat: Category): Task[] {
   if (cat === 'pessoal') {
     const iso = toISO(date)
     return tasks.filter(t => t.category === 'pessoal' && t.dueDate === iso)
   }
-  const wd = weekdayOf(date)
-  return wd ? tasks.filter(t => t.category === 'trabalho' && t.weekday === wd) : []
+  return tasks.filter(t => t.category === 'trabalho' && activeOnDate(t, date))
 }
 
 export function CalendarView({ tasks, onDayPress }: Props) {

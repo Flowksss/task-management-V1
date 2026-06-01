@@ -10,11 +10,11 @@ import { WeekView } from './components/WeekView'
 import { DayDetail } from './components/DayDetail'
 import type { Task, Weekday, Period } from './types'
 import type { View } from './components/BottomNav'
-import { isDone } from './lib/tasks'
-import { todayISO, todayWeekday } from './lib/date'
+import { isDone, activeOnDate } from './lib/tasks'
+import { todayISO } from './lib/date'
 
 export default function App() {
-  const { tasks, addTask, toggleTask, toggleWorkDone, deleteTask, editTask } = useTasks()
+  const { tasks, addTask, toggleTask, toggleDone, deleteTask, editTask } = useTasks()
   const [view, setView] = useState<View>('dashboard')
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -54,10 +54,10 @@ export default function App() {
 
   // Semana de trabalho
   const workTasks = tasks.filter(t => t.category === 'trabalho')
-  const wd = todayWeekday()
-  const todayWorkPending = wd
-    ? workTasks.filter(t => t.weekday === wd && !isDone(t, todayISO())).length
-    : 0
+  const today = new Date()
+  const todayWorkPending = workTasks.filter(
+    t => activeOnDate(t, today) && !isDone(t, todayISO())
+  ).length
 
   return (
     <div className="min-h-svh bg-[#0a0a0a] flex flex-col max-w-lg mx-auto">
@@ -65,8 +65,7 @@ export default function App() {
       {view === 'dashboard' && (
         <Dashboard
           tasks={tasks}
-          onTogglePersonal={toggleTask}
-          onToggleWork={toggleWorkDone}
+          onToggleDone={toggleDone}
           onGoTo={setView}
         />
       )}
@@ -168,7 +167,7 @@ export default function App() {
           </div>
           <WeekView
             tasks={workTasks}
-            onToggleDone={toggleWorkDone}
+            onToggleDone={toggleDone}
             onEdit={handleEdit}
             onAdd={handleWeekAdd}
           />
@@ -184,8 +183,7 @@ export default function App() {
           date={selectedDay}
           tasks={tasks}
           onClose={() => setSelectedDay(null)}
-          onTogglePersonal={toggleTask}
-          onToggleWork={toggleWorkDone}
+          onToggleDone={toggleDone}
           onDelete={deleteTask}
           onEdit={t => { setSelectedDay(null); handleEdit(t) }}
         />

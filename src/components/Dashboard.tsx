@@ -1,13 +1,12 @@
 import { Check, Briefcase, User, TrendingUp, AlertCircle, CalendarClock, ChevronRight } from 'lucide-react'
 import type { Task } from '../types'
-import { toISO, todayISO, todayWeekday, weekdayOf } from '../lib/date'
-import { isDone } from '../lib/tasks'
+import { toISO, todayISO, weekDates } from '../lib/date'
+import { isDone, activeOnDate } from '../lib/tasks'
 import type { View } from './BottomNav'
 
 interface Props {
   tasks: Task[]
-  onTogglePersonal: (id: string) => void
-  onToggleWork: (id: string, iso: string) => void
+  onToggleDone: (task: Task, iso: string) => void
   onGoTo: (view: View) => void
 }
 
@@ -28,12 +27,12 @@ function fullDate(): string {
   return `${days[d.getDay()]}, ${d.getDate()} de ${months[d.getMonth()]}`
 }
 
-export function Dashboard({ tasks, onTogglePersonal, onToggleWork, onGoTo }: Props) {
+export function Dashboard({ tasks, onToggleDone, onGoTo }: Props) {
   const iso = todayISO()
-  const wd = todayWeekday()
+  const today = new Date()
 
-  // Agenda de hoje
-  const todayWork = wd ? tasks.filter(t => t.category === 'trabalho' && t.weekday === wd) : []
+  // Agenda de hoje (fixa por weekday + avulsa no range, ambas via activeOnDate)
+  const todayWork = tasks.filter(t => t.category === 'trabalho' && activeOnDate(t, today, true))
   const todayPersonal = tasks.filter(t => t.category === 'pessoal' && t.dueDate === iso)
   const agenda = [...todayWork, ...todayPersonal]
   const agendaDone = agenda.filter(t => isDone(t, iso)).length
@@ -41,47 +40,33 @@ export function Dashboard({ tasks, onTogglePersonal, onToggleWork, onGoTo }: Pro
 
   // Métricas pessoais
   const personalPending = tasks.filter(t => t.category === 'pessoal' && !t.completed)
-  const overdue = personalPending.filter(t => t.dueDate && t.dueDate < iso)
+  // Atrasadas: pessoais + avulsa de trabalho com prazo vencido não concluída
+  const overdueWork = tasks.filter(
+    t => t.category === 'trabalho' && t.fixa === false && !t.completed && t.dueDate && t.dueDate < iso
+  )
+  const overdue = [...personalPending.filter(t => t.dueDate && t.dueDate < iso), ...overdueWork]
   const upcoming = personalPending
     .filter(t => t.dueDate && t.dueDate > iso)
     .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1))
     .slice(0, 3)
 
-  // Conclusão da semana de trabalho (por dia da semana, segunda a sexta atual)
-  const monday = new Date()
-  monday.setHours(0, 0, 0, 0)
-  const dow = monday.getDay()
-  const diffToMon = dow === 0 ? -6 : 1 - dow
-  monday.setDate(monday.getDate() + diffToMon)
-
+  // Conclusão da semana de trabalho (datas reais Seg→Sex)
+  const dates = weekDates()
   const weekBars = BAR_KEYS.map((key, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
+    const d = dates[i]
     const dISO = toISO(d)
-    const scheduled = tasks.filter(t => t.category === 'trabalho' && t.weekday === weekdayOf(d))
+    const scheduled = tasks.filter(t => t.category === 'trabalho' && activeOnDate(t, d, true))
     const done = scheduled.filter(t => isDone(t, dISO)).length
     const pct = scheduled.length > 0 ? done / scheduled.length : 0
-    const isFuture = dISO > iso
-    return { key, pct, scheduled: scheduled.length, isToday: dISO === iso, isFuture }
+    return { key, pct, scheduled: scheduled.length, done, isToday: dISO === iso, isFuture: dISO > iso }
   })
 
   const weekScheduled = weekBars.reduce((s, b) => s + b.scheduled, 0)
-  const weekDoneTotal = tasks
-    .filter(t => t.category === 'trabalho')
-    .reduce((s, t) => {
-      // conta conclusões dentro da semana atual (seg-sex)
-      const inWeek = (t.completedDates ?? []).filter(d => {
-        const start = toISO(monday)
-        const end = (() => { const e = new Date(monday); e.setDate(monday.getDate() + 4); return toISO(e) })()
-        return d >= start && d <= end
-      })
-      return s + inWeek.length
-    }, 0)
+  const weekDoneTotal = weekBars.reduce((s, b) => s + b.done, 0)
   const weekPct = weekScheduled > 0 ? Math.round((weekDoneTotal / weekScheduled) * 100) : 0
 
   function toggle(task: Task) {
-    if (task.category === 'trabalho') onToggleWork(task.id, iso)
-    else onTogglePersonal(task.id)
+    onToggleDone(task, iso)
   }
 
   return (

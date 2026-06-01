@@ -16,6 +16,9 @@ export interface Task {
   // trabalho
   weekday?: Weekday
   period?: Period
-  /** Datas ISO em que a tarefa de trabalho foi concluída. Reset diário derivado. */
+  /** true (default) = fixa, repete toda semana no weekday, check reseta a cada dia.
+   *  false = avulsa, aparece de createdAt até dueDate, conclusão permanente. */
+  fixa?: boolean
+  /** Datas ISO em que a tarefa FIXA foi concluída. Reset diário derivado. */
   completedDates?: string[]
 }

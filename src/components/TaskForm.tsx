@@ -11,6 +11,7 @@ interface Props {
     dueDate?: string
     weekday?: Weekday
     period?: Period
+    fixa?: boolean
   }) => void
   onClose: () => void
   initial?: Task
@@ -51,18 +52,23 @@ export function TaskForm({ onSubmit, onClose, initial, defaultCategory, defaultW
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? '')
   const [weekday, setWeekday] = useState<Weekday | undefined>(initial?.weekday ?? defaultWeekday)
   const [period, setPeriod] = useState<Period | undefined>(initial?.period ?? defaultPeriod)
+  const [fixa, setFixa] = useState<boolean>(initial?.fixa ?? true)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
+    const isWork = category === 'trabalho'
     onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
       category,
       priority,
-      dueDate: category === 'pessoal' ? (dueDate || undefined) : undefined,
-      weekday: category === 'trabalho' ? weekday : undefined,
-      period: category === 'trabalho' ? period : undefined,
+      // pessoal usa dueDate; avulsa de trabalho usa dueDate como prazo
+      dueDate: category === 'pessoal' || (isWork && !fixa) ? (dueDate || undefined) : undefined,
+      // weekday só para fixa; avulsa não fica presa a um dia
+      weekday: isWork && fixa ? weekday : undefined,
+      period: isWork ? period : undefined,
+      fixa: isWork ? fixa : undefined,
     })
     onClose()
   }
@@ -161,25 +167,67 @@ export function TaskForm({ onSubmit, onClose, initial, defaultCategory, defaultW
 
         {category === 'trabalho' && (
           <>
+            {/* Fixa vs Avulsa */}
             <div>
-              <label className="text-xs text-neutral-400 mb-1.5 block">Dia da semana</label>
-              <div className="flex gap-1.5">
-                {WEEKDAYS.map(d => (
-                  <button
-                    key={d.value}
-                    type="button"
-                    onClick={() => setWeekday(d.value)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-                      weekday === d.value
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                    }`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
+              <label className="text-xs text-neutral-400 mb-1.5 block">Tipo</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFixa(true)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                    fixa ? 'bg-indigo-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Fixa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFixa(false)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                    !fixa ? 'bg-indigo-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Avulsa
+                </button>
               </div>
+              <p className="text-xs text-neutral-500 mt-1.5">
+                {fixa
+                  ? 'Repete toda semana no dia escolhido. O check reseta a cada dia.'
+                  : 'Aparece todo dia até o prazo. Some quando concluída.'}
+              </p>
             </div>
+
+            {fixa ? (
+              <div>
+                <label className="text-xs text-neutral-400 mb-1.5 block">Dia da semana</label>
+                <div className="flex gap-1.5">
+                  {WEEKDAYS.map(d => (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => setWeekday(d.value)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        weekday === d.value
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs text-neutral-400 mb-1.5 block">Prazo (até quando aparece)</label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={e => setDueDate(e.target.value)}
+                  className="w-full bg-neutral-800 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500 [color-scheme:dark]"
+                />
+              </div>
+            )}
 
             <div>
               <label className="text-xs text-neutral-400 mb-1.5 block">Período</label>

@@ -1,14 +1,13 @@
 import { X, Check, Trash2, Pencil } from 'lucide-react'
 import type { Task } from '../types'
-import { toISO, weekdayOf } from '../lib/date'
-import { isDone } from '../lib/tasks'
+import { toISO } from '../lib/date'
+import { isDone, activeOnDate } from '../lib/tasks'
 
 interface Props {
   date: Date
   tasks: Task[]
   onClose: () => void
-  onTogglePersonal: (id: string) => void
-  onToggleWork: (id: string, iso: string) => void
+  onToggleDone: (task: Task, iso: string) => void
   onDelete: (id: string) => void
   onEdit: (task: Task) => void
 }
@@ -22,20 +21,19 @@ const PRIORITY_DOT = {
 const DAY_NAMES_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
-export function DayDetail({ date, tasks, onClose, onTogglePersonal, onToggleWork, onDelete, onEdit }: Props) {
+export function DayDetail({ date, tasks, onClose, onToggleDone, onDelete, onEdit }: Props) {
   const iso = toISO(date)
-  const weekday = weekdayOf(date)
 
   const personal = tasks.filter(t => t.category === 'pessoal' && t.dueDate === iso)
-  const work = weekday ? tasks.filter(t => t.category === 'trabalho' && t.weekday === weekday) : []
+  // includeCompleted: avulsa concluída ainda aparece aqui (riscada) como undo
+  const work = tasks.filter(t => t.category === 'trabalho' && activeOnDate(t, date, true))
   const all = [...personal, ...work]
   const pendingCount = all.filter(t => !isDone(t, iso)).length
 
   const dayLabel = `${DAY_NAMES_FULL[date.getDay()]}, ${date.getDate()} de ${MONTH_SHORT[date.getMonth()]}`
 
   function toggle(task: Task) {
-    if (task.category === 'trabalho') onToggleWork(task.id, iso)
-    else onTogglePersonal(task.id)
+    onToggleDone(task, iso)
   }
 
   return (
